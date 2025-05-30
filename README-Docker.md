@@ -1,53 +1,72 @@
 # SmartCallr Backend - Docker Setup
 
+Simple Docker setup for the Django backend.
+
 ## Quick Start
 
-1. **Navigate to backend directory**
-   ```bash
-   cd backend
-   ```
+```bash
+cd backend
+docker compose up --build
+```
 
-2. **Make sure your `.env` file exists** with your actual API keys and database credentials
+## What's Included
 
-3. **Build and run with Docker Compose**
-   ```bash
-   docker compose up --build
-   ```
+- **Django Backend** - API running on port 8000
+- **Uses Your Local Database** - Connects to your existing PostgreSQL
 
-That's it! The container will use your existing local PostgreSQL database.
+## Prerequisites
 
-## Services
+- Docker and Docker Compose v2
+- Local PostgreSQL database running
+- `.env` file with your API keys
 
-- **Backend**: Django API running on http://localhost:8000
-- **Database**: Uses your existing local PostgreSQL database
+## Environment Setup
 
-## Useful Commands
+Create `.env` file in backend directory:
 
 ```bash
+# Django
+SECRET_KEY=your-secret-key
+DEBUG=False
+
+# Database (uses your local PostgreSQL)
+DB_HOST=host.docker.internal
+DB_NAME=your-db-name
+DB_USER=your-db-user
+DB_PASSWORD=your-db-password
+
+# API Keys
+OPENAI_API_KEY=your-openai-key
+TWILIO_ACCOUNT_SID=your-twilio-sid
+TWILIO_AUTH_TOKEN=your-twilio-token
+TWILIO_PHONE_NUMBER=your-twilio-number
+```
+
+## Commands
+
+```bash
+# Start services
+docker compose up --build
+
 # Stop services
 docker compose down
 
 # View logs
 docker compose logs backend
 
-# Access backend shell
-docker compose exec backend python manage.py shell
-
 # Rebuild and restart
-docker compose down
-docker compose up --build
+docker compose down && docker compose up --build
 ```
+
+## Access
+
+- **API:** http://localhost:8000
+- **Admin:** http://localhost:8000/admin
+- **Health:** http://localhost:8000/leads/
 
 ## Notes
 
-- The container uses `network_mode: "host"` to access your local database
-- All configuration is read from your `.env` file
-- No need to run migrations again - uses your existing database
-- Recordings are mounted from your local `recordings/` folder
-
-## Production Notes
-
-- Change all default passwords and secret keys
-- Set DEBUG=False in production
-- Use environment-specific configuration files
-- Consider using external database services for production 
+- Container connects to your local PostgreSQL database
+- Recordings are saved to `./recordings` directory
+- Environment variables loaded from `.env` file
+- Hot reload not enabled (production setup)
