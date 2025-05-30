@@ -19,7 +19,7 @@ A full-stack web application for managing leads and calls with AI transcription 
 **Communication:** Twilio Voice API
 **Deployment:** Docker, Docker Compose
 
-## Quick Start
+## Quick Start (Local Development)
 
 ### 1. Clone Repository
 ```bash
@@ -27,35 +27,74 @@ git clone <your-repo-url>
 cd SmartCallr
 ```
 
-### 2. Backend Setup
+### 2. Backend Setup (Local)
 ```bash
 cd backend
+
+# Create virtual environment
+conda create -n smartcallr-backend python=3.11
+conda activate smartcallr-backend
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Setup environment
 cp .env.example .env  # Add your API keys
-docker compose up --build
+
+# Run migrations
+python manage.py migrate
+
+# Start backend
+python manage.py runserver
 ```
 
 ### 3. Frontend Setup
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Setup environment
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+
+# Start frontend
 npm run dev
 ```
 
 ### 4. Access Application
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
+- Admin Panel: http://localhost:8000/admin
+
+## Alternative: Docker Setup
+
+For Docker deployment (production-like environment):
+
+```bash
+cd backend
+docker compose up --build
+```
+
+See [Docker Setup Guide](backend/README-Docker.md) for details.
 
 ## Environment Variables
 
-Create `.env` files in both backend and frontend directories:
-
 **Backend (.env):**
 ```
+SECRET_KEY=your-secret-key
+DEBUG=True
 OPENAI_API_KEY=your-openai-key
 TWILIO_ACCOUNT_SID=your-twilio-sid
 TWILIO_AUTH_TOKEN=your-twilio-token
 TWILIO_PHONE_NUMBER=your-twilio-number
-DB_HOST=host.docker.internal
+
+# Database (local PostgreSQL)
+DB_HOST=localhost
+DB_NAME=smartcallr_db
+DB_USER=your-db-user
+DB_PASSWORD=your-db-password
+DB_PORT=5432
 ```
 
 **Frontend (.env.local):**
@@ -81,17 +120,30 @@ SmartCallr/
 - **Call History** - Browse past calls with search and filters
 - **AI Integration** - Automatic transcription and summarization
 
-## Development
+## Development Commands
 
-- **Frontend:** `npm run dev` (localhost:3000)
-- **Backend:** `docker compose up` (localhost:8000)
-- **Testing:** `pytest` (backend), `npm test` (frontend)
+**Backend:**
+```bash
+conda activate smartcallr-backend
+python manage.py runserver          # Start development server
+python manage.py migrate            # Run database migrations
+python manage.py createsuperuser    # Create admin user
+pytest                              # Run tests
+```
+
+**Frontend:**
+```bash
+npm run dev          # Start development server
+npm run build        # Production build
+npm run lint         # Code linting
+npm test             # Run tests
+```
 
 ## Documentation
 
-- [Docker Setup](backend/README-Docker.md)
-- [Testing Guide](backend/README-Testing.md)
-- [Frontend Guide](frontend/README.md)
+- [Docker Setup](backend/README-Docker.md) - For containerized deployment
+- [Testing Guide](backend/README-Testing.md) - API testing with pytest
+- [Frontend Guide](frontend/README.md) - Next.js app details
 
 ## License
 
