@@ -29,6 +29,8 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = []
 
+# Twilio settings
+TWILIO_VOICE_URL = config('TWILIO_VOICE_URL')
 
 # Application definition
 

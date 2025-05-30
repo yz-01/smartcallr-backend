@@ -11,6 +11,7 @@ class AIService:
     def __init__(self):
         openai_key = config('OPENAI_API_KEY', default='')
         groq_key = config('GROQ_API_KEY', default='')
+        openai_model = config('OPENAI_MODEL', default='gpt-4o-mini')
 
         if not openai_key:
             logger.warning("OPENAI_API_KEY not found in environment variables")
@@ -19,6 +20,7 @@ class AIService:
 
         self.openai_client = OpenAI(api_key=openai_key)
         self.groq_client = Groq(api_key=groq_key)
+        self.openai_model = openai_model
 
     def transcribe_audio(self, audio_file_path):
         """
@@ -53,28 +55,62 @@ class AIService:
 
     def summarize_transcription(self, transcription_text):
         """
-        Generate summary of transcription using Groq
+        Generate summary of transcription using OpenAI
         """
         try:
             prompt = f"""
-            Please provide a concise and professional summary of the following phone call transcription. 
-            Focus on key points, decisions made, and important information discussed:
+            You are an AI assistant specializing in business call analysis. Please analyze the following phone call transcription and provide a comprehensive summary.
 
-            Transcription:
+            **Instructions:**
+            - Create a well-structured summary that captures the essence of the conversation
+            - Focus on actionable items, decisions, and key outcomes
+            - Identify the main purpose/topic of the call
+            - Note any follow-up actions or commitments made
+            - Highlight important dates, numbers, or specific details mentioned
+            - Keep the tone professional and concise
+            - If this appears to be a sales/lead call, note the lead's interest level and next steps
+
+            **Call Transcription:**
             {transcription_text}
 
-            Summary:
+            **Please provide your summary in the following format:**
+
+            **Call Purpose:** [Brief description of why the call took place]
+
+            **Key Discussion Points:**
+            • [Main topic 1]
+            • [Main topic 2]
+            • [Main topic 3]
+
+            **Decisions Made:**
+            • [Decision 1]
+            • [Decision 2]
+
+            **Action Items:**
+            • [Action item 1 - who is responsible]
+            • [Action item 2 - who is responsible]
+
+            **Next Steps:**
+            [What happens next, follow-up timeline, etc.]
+
+            **Additional Notes:**
+            [Any other important information, contact details, dates, numbers mentioned]
             """
 
             chat_completion = self.openai_client.chat.completions.create(
                 messages=[
                     {
+                        "role": "system",
+                        "content": "You are a professional business call analyst. Your job is to create clear, actionable summaries of phone conversations that help users quickly understand what was discussed and what needs to be done next."
+                    },
+                    {
                         "role": "user",
                         "content": prompt
                     }
                 ],
-                model="gpt-4o-mini",
-                temperature=0.7
+                model=self.openai_model,
+                temperature=0.3,
+                max_tokens=1000
             )
 
             summary = chat_completion.choices[0].message.content

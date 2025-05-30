@@ -145,6 +145,34 @@ class CallViewSet(viewsets.ViewSet):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
+    @action(detail=True, methods=['PATCH'], url_path='notes')
+    def update_notes(self, request, pk=None):
+        try:
+            logger.info(f"Updating notes for call {pk}", extra={
+                        "user": request.user})
+            call = Call.objects.get(pk=pk, user=request.user)
+
+            notes = request.data.get('notes', '')
+
+            # Update call notes
+            call.notes = notes
+            call.save()
+
+            response_data = CallSerializer(call).data
+            return custom_success_response(response_data)
+
+        except Call.DoesNotExist:
+            return custom_error_response(
+                message="Call not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error updating notes for call {pk}", exc_info=True)
+            return custom_error_response(
+                message=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
     @action(detail=True, methods=['POST'], url_path='download-recording')
     def download_recording(self, request, pk=None):
         try:

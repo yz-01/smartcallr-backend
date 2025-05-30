@@ -27,7 +27,7 @@ class TwilioService:
             call = self.client.calls.create(
                 to=to_number,
                 from_=from_number,
-                url='http://demo.twilio.com/docs/voice.xml',  # Basic TwiML for demo
+                url=settings.TWILIO_VOICE_URL,
                 record=True  # Enable call recording
             )
 
