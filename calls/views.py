@@ -3,10 +3,12 @@ import logging
 import os
 import time
 from datetime import datetime
+from django.http import HttpResponse, FileResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
+from django.conf import settings
 
 from .models import Call
 from .serializers import (
@@ -14,6 +16,7 @@ from .serializers import (
     EndCallSerializer, UploadRecordingSerializer
 )
 from .twilio_service import TwilioService
+from .ai_service import AIService
 from leads.models import Lead
 from utils.response_template import custom_success_response, custom_error_response
 
@@ -196,6 +199,9 @@ class CallViewSet(viewsets.ViewSet):
                     call.duration = int(download_result['duration'])
                 call.save()
 
+                # Automatically start transcription and summary generation
+                self._process_recording_async(call.id)
+
                 response_data = CallSerializer(call).data
                 return custom_success_response(response_data)
             else:
@@ -249,6 +255,201 @@ class CallViewSet(viewsets.ViewSet):
             )
         except Exception as e:
             logger.error(f"Error getting call status {pk}", exc_info=True)
+            return custom_error_response(
+                message=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+    def _process_recording_async(self, call_id):
+        """
+        Process recording asynchronously for transcription and summary
+        Note: In production, this should be moved to a background task (Celery)
+        """
+        try:
+            call = Call.objects.get(pk=call_id)
+            ai_service = AIService()
+
+            # Update transcription status
+            call.transcribe_status = 'processing'
+            call.save()
+
+            # Transcribe audio
+            full_path = os.path.join(os.getcwd(), call.recording_file_path)
+            transcription_result = ai_service.transcribe_audio(full_path)
+
+            if transcription_result['success']:
+                call.transcribe_content = transcription_result['transcription']
+                call.transcribe_status = 'completed'
+                call.save()
+
+                # Generate summary
+                call.summary_status = 'processing'
+                call.save()
+
+                summary_result = ai_service.summarize_transcription(
+                    call.transcribe_content)
+
+                if summary_result['success']:
+                    call.summary_content = summary_result['summary']
+                    call.summary_status = 'completed'
+                else:
+                    call.summary_status = 'failed'
+                call.save()
+
+            else:
+                call.transcribe_status = 'failed'
+                call.save()
+
+        except Exception as e:
+            logger.error(f"Error processing recording async: {str(e)}")
+
+    @action(detail=True, methods=['POST'], url_path='transcribe')
+    def transcribe_recording(self, request, pk=None):
+        try:
+            logger.info(f"Transcribing recording for call {pk}", extra={
+                        "user": request.user})
+            call = Call.objects.get(pk=pk, user=request.user)
+
+            if not call.recording_file_path:
+                return custom_error_response(
+                    message="No recording file found for this call",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Update status to processing
+            call.transcribe_status = 'processing'
+            call.save()
+
+            ai_service = AIService()
+            full_path = os.path.join(os.getcwd(), call.recording_file_path)
+
+            transcription_result = ai_service.transcribe_audio(full_path)
+
+            if transcription_result['success']:
+                call.transcribe_content = transcription_result['transcription']
+                call.transcribe_status = 'completed'
+                call.save()
+
+                response_data = CallSerializer(call).data
+                return custom_success_response(response_data)
+            else:
+                call.transcribe_status = 'failed'
+                call.save()
+                return custom_error_response(
+                    message=f"Transcription failed: {transcription_result['error']}",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Call.DoesNotExist:
+            return custom_error_response(
+                message="Call not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(
+                f"Error transcribing recording for call {pk}", exc_info=True)
+            return custom_error_response(
+                message=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['POST'], url_path='summarize')
+    def summarize_call(self, request, pk=None):
+        try:
+            logger.info(f"Summarizing call {pk}", extra={"user": request.user})
+            call = Call.objects.get(pk=pk, user=request.user)
+
+            if not call.transcribe_content:
+                return custom_error_response(
+                    message="No transcription available for this call",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Update status to processing
+            call.summary_status = 'processing'
+            call.save()
+
+            ai_service = AIService()
+            summary_result = ai_service.summarize_transcription(
+                call.transcribe_content)
+
+            if summary_result['success']:
+                call.summary_content = summary_result['summary']
+                call.summary_status = 'completed'
+                call.save()
+
+                response_data = CallSerializer(call).data
+                return custom_success_response(response_data)
+            else:
+                call.summary_status = 'failed'
+                call.save()
+                return custom_error_response(
+                    message=f"Summary generation failed: {summary_result['error']}",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+        except Call.DoesNotExist:
+            return custom_error_response(
+                message="Call not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error summarizing call {pk}", exc_info=True)
+            return custom_error_response(
+                message=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['GET'], url_path='audio')
+    def serve_audio(self, request, pk=None):
+        try:
+            logger.info(f"Serving audio for call {pk}", extra={
+                        "user_id": request.user.id if request.user.is_authenticated else "anonymous"})
+
+            # Check authentication - allow token in URL parameter for audio playback
+            if not request.user.is_authenticated:
+                return custom_error_response(
+                    message="Authentication required",
+                    status_code=status.HTTP_401_UNAUTHORIZED
+                )
+
+            call = Call.objects.get(pk=pk, user=request.user)
+
+            if not call.recording_file_path:
+                return custom_error_response(
+                    message="No recording file found for this call",
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+
+            full_path = os.path.join(os.getcwd(), call.recording_file_path)
+
+            if not os.path.exists(full_path):
+                return custom_error_response(
+                    message="Recording file not found on server",
+                    status_code=status.HTTP_404_NOT_FOUND
+                )
+
+            # Serve the audio file with proper headers
+            response = FileResponse(
+                open(full_path, 'rb'),
+                content_type='audio/mpeg',
+                as_attachment=False
+            )
+            response['Content-Disposition'] = f'inline; filename="{os.path.basename(full_path)}"'
+            response['Access-Control-Allow-Origin'] = '*'
+            response['Access-Control-Allow-Methods'] = 'GET'
+            response['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
+            response['Cache-Control'] = 'no-cache'
+            response['Accept-Ranges'] = 'bytes'
+            return response
+
+        except Call.DoesNotExist:
+            return custom_error_response(
+                message="Call not found",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error serving audio for call {pk}", exc_info=True)
             return custom_error_response(
                 message=str(e),
                 status_code=status.HTTP_400_BAD_REQUEST

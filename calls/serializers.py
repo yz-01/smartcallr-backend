@@ -9,13 +9,14 @@ class CallSerializer(serializers.ModelSerializer):
     class Meta:
         model = Call
         fields = [
-            'id', 'phone_number', 'twilio_call_sid', 'status',
+            'id', 'phone_number', 'twilio_call_sid', 'twilio_recording_sid', 'status',
             'start_time', 'end_time', 'duration', 'duration_formatted',
-            'recording_file_path', 'notes', 'created_at', 'updated_at',
+            'recording_file_path', 'transcribe_status', 'transcribe_content',
+            'summary_status', 'summary_content', 'notes', 'created_at', 'updated_at',
             'lead_name'
         ]
         read_only_fields = ['id', 'created_at',
-                            'updated_at', 'twilio_call_sid']
+                            'updated_at', 'twilio_call_sid', 'twilio_recording_sid']
 
     def get_lead_name(self, obj):
         return obj.lead.name if obj.lead else None

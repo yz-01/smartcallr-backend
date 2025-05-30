@@ -30,6 +30,26 @@ class Call(models.Model):
         null=True, blank=True, help_text="Duration in seconds")
     recording_file_path = models.CharField(
         max_length=500, null=True, blank=True)
+    transcribe_status = models.CharField(
+        max_length=20, default='pending',
+        choices=[
+            ('pending', 'Pending'),
+            ('processing', 'Processing'),
+            ('completed', 'Completed'),
+            ('failed', 'Failed')
+        ]
+    )
+    transcribe_content = models.TextField(blank=True)
+    summary_status = models.CharField(
+        max_length=20, default='pending',
+        choices=[
+            ('pending', 'Pending'),
+            ('processing', 'Processing'),
+            ('completed', 'Completed'),
+            ('failed', 'Failed')
+        ]
+    )
+    summary_content = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
