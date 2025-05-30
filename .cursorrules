@@ -1,0 +1,114 @@
+# SmartCallr Backend - Django Project Rules
+
+## Project Structure
+- Follow Django best practices with apps for different functionality
+- Use Django REST Framework for API development
+- Implement JWT authentication for secure API access
+- PostgreSQL as the primary database
+
+## Code Style & Standards
+
+### Python/Django Standards
+- Follow PEP 8 for Python code formatting
+- Use Django naming conventions (snake_case for variables, functions, files)
+- Use descriptive variable and function names
+- Maximum line length: 100 characters
+- Use type hints where appropriate
+
+### ViewSets Pattern (MANDATORY)
+```python
+class ExampleViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, HasTenantAccess]
+    
+    @action(detail=False, methods=['GET'], url_path='get_example')
+    def get_example(self, request):
+        try:
+            logger.info("Action description", extra={"user": request.user})
+            # Implementation here
+            return custom_success_response(data)
+        except Exception as e:
+            logger.error("Error description", exc_info=True)
+            return custom_error_response(
+                message=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+```
+
+### URL Patterns (MANDATORY)
+```python
+from rest_framework.routers import DefaultRouter
+from app.views import ExampleViewSet
+
+router = DefaultRouter()
+router.register('resource', ExampleViewSet, basename='resource')
+urlpatterns = router.urls
+```
+
+### Response Format (MANDATORY)
+- Use `custom_success_response(data, status_code)` for success responses
+- Use `custom_error_response(message, status_code)` for error responses
+- Always include proper HTTP status codes
+- Consistent JSON response structure
+
+### Database & Models
+- Use Django migrations for all database changes
+- Include proper field validation and constraints
+- Use meaningful model names and field names
+- Add `__str__` methods to all models
+- Use proper relationships (ForeignKey, ManyToMany, etc.)
+
+### Authentication & Security
+- JWT tokens for API authentication
+- Proper permission classes for all views
+- Input validation using Django REST Framework serializers
+- Environment variables for sensitive data (.env file)
+
+### Logging & Error Handling
+- Use Python logging module with appropriate levels
+- Include context in log messages (user, action, etc.)
+- Proper exception handling with try/catch blocks
+- Log errors with `exc_info=True` for stack traces
+
+### API Documentation
+- Use descriptive docstrings for all functions and classes
+- Document API endpoints with clear descriptions
+- Include example request/response formats
+
+## File Organization
+```
+backend/
+├── manage.py
+├── requirements.txt
+├── .env
+├── backend/
+│   ├── settings.py
+│   ├── urls.py
+│   └── wsgi.py
+├── apps/
+│   └── app_name/
+│       ├── models.py
+│       ├── views.py
+│       ├── serializers.py
+│       ├── urls.py
+│       └── tests.py
+└── utils/
+    └── response_template.py
+```
+
+## Testing
+- Write unit tests for all models and views
+- Use Django's TestCase for database-related tests
+- Mock external dependencies in tests
+- Aim for high test coverage
+
+## Dependencies
+- Keep requirements.txt updated
+- Pin major version numbers
+- Separate development and production dependencies
+- Document any new dependencies added
+
+## Git Workflow
+- Use descriptive commit messages
+- Create feature branches for new functionality
+- Code review before merging to main
+- Keep commits focused and atomic 
