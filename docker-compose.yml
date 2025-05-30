@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  # Django Backend
+  backend:
+    build: .
+    container_name: smartcallr_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./recordings:/app/recordings
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
